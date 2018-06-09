@@ -50,9 +50,9 @@
       "version": "0.1.1"
     },
     {
-      "hash": "QmTsjVoib7EJhT7tmcqKPhEaATcxd6UVZu2qxdthk85vvv",
+      "hash": "Qmbi1CTJsbnBZjCEgc2otwu8cUFPsGpzWXG7edVCLZ7Gvk",
       "name": "go-log",
-      "version": "1.5.1"
+      "version": "1.5.2"
     }
   ],
   "gxVersion": "0.12.1",
@@ -60,6 +60,6 @@
   "license": "MIT",
   "name": "go-ipfs-blockstore",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.0.5"
+  "version": "0.0.6"
 }
 
