@@ -12,6 +12,7 @@ import (
 	dsq "github.com/ipfs/go-datastore/query"
 	ds_sync "github.com/ipfs/go-datastore/sync"
 	u "github.com/ipfs/go-ipfs-util"
+	mh "github.com/multiformats/go-multihash"
 )
 
 func TestGetWhenKeyNotPresent(t *testing.T) {
@@ -64,7 +65,7 @@ func TestPutThenGetSizeBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blockSize, err := bs.GetSize(block.Cid())
+	blockSize, err := bs.GetSize(block.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,11 +78,11 @@ func TestPutThenGetSizeBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if blockSize, err := bs.GetSize(emptyBlock.Cid()); blockSize != 0 || err != nil {
+	if blockSize, err := bs.GetSize(emptyBlock.Cid().Hash()); blockSize != 0 || err != nil {
 		t.Fatal(err)
 	}
 
-	if blockSize, err := bs.GetSize(missingBlock.Cid()); blockSize != -1 || err == nil {
+	if blockSize, err := bs.GetSize(missingBlock.Cid().Hash()); blockSize != -1 || err == nil {
 		t.Fatal("getsize returned invalid result")
 	}
 }
@@ -113,26 +114,26 @@ func TestHashOnRead(t *testing.T) {
 	}
 }
 
-func newBlockStoreWithKeys(t *testing.T, d ds.Datastore, N int) (Blockstore, []cid.Cid) {
+func newBlockStoreWithKeys(t *testing.T, d ds.Datastore, N int) (Blockstore, []mh.Multihash) {
 	if d == nil {
 		d = ds.NewMapDatastore()
 	}
 	bs := NewBlockstore(ds_sync.MutexWrap(d))
 
-	keys := make([]cid.Cid, N)
+	keys := make([]mh.Multihash, N)
 	for i := 0; i < N; i++ {
 		block := blocks.NewBlock([]byte(fmt.Sprintf("some data %d", i)))
 		err := bs.Put(block)
 		if err != nil {
 			t.Fatal(err)
 		}
-		keys[i] = block.Cid()
+		keys[i] = block.Cid().Hash()
 	}
 	return bs, keys
 }
 
-func collect(ch <-chan cid.Cid) []cid.Cid {
-	var keys []cid.Cid
+func collect(ch <-chan mh.Multihash) []mh.Multihash {
+	var keys []mh.Multihash
 	for k := range ch {
 		keys = append(keys, k)
 	}
@@ -217,7 +218,7 @@ func TestAllKeysRespectsContext(t *testing.T) {
 
 }
 
-func expectMatches(t *testing.T, expect, actual []cid.Cid) {
+func expectMatches(t *testing.T, expect, actual []mh.Multihash) {
 
 	if len(expect) != len(actual) {
 		t.Errorf("expect and actual differ: %d != %d", len(expect), len(actual))
@@ -225,7 +226,7 @@ func expectMatches(t *testing.T, expect, actual []cid.Cid) {
 	for _, ek := range expect {
 		found := false
 		for _, ak := range actual {
-			if ek.Equals(ak) {
+			if bytes.Equal(ek, ak) {
 				found = true
 			}
 		}

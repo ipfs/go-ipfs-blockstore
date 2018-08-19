@@ -46,11 +46,11 @@ func TestPutManyAddsToBloom(t *testing.T) {
 	emptyBlock := blocks.NewBlock([]byte{})
 
 	cachedbs.PutMany([]blocks.Block{block1, emptyBlock})
-	has, err := cachedbs.Has(block1.Cid())
+	has, err := cachedbs.Has(block1.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
-	blockSize, err := cachedbs.GetSize(block1.Cid())
+	blockSize, err := cachedbs.GetSize(block1.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +58,11 @@ func TestPutManyAddsToBloom(t *testing.T) {
 		t.Fatal("added block is reported missing")
 	}
 
-	has, err = cachedbs.Has(block2.Cid())
+	has, err = cachedbs.Has(block2.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
-	blockSize, err = cachedbs.GetSize(block2.Cid())
+	blockSize, err = cachedbs.GetSize(block2.Cid().Hash())
 	if err != nil && err != ErrNotFound {
 		t.Fatal(err)
 	}
@@ -70,11 +70,11 @@ func TestPutManyAddsToBloom(t *testing.T) {
 		t.Fatal("not added block is reported to be in blockstore")
 	}
 
-	has, err = cachedbs.Has(emptyBlock.Cid())
+	has, err = cachedbs.Has(emptyBlock.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
-	blockSize, err = cachedbs.GetSize(emptyBlock.Cid())
+	blockSize, err = cachedbs.GetSize(emptyBlock.Cid().Hash())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,11 +115,11 @@ func TestHasIsBloomCached(t *testing.T) {
 	})
 
 	for i := 0; i < 1000; i++ {
-		cachedbs.Has(blocks.NewBlock([]byte(fmt.Sprintf("data: %d", i+2000))).Cid())
+		cachedbs.Has(blocks.NewBlock([]byte(fmt.Sprintf("data: %d", i+2000))).Cid().Hash())
 	}
 
 	if float64(cacheFails)/float64(1000) > float64(0.05) {
-		t.Fatalf("Bloom filter has cache miss rate of more than 5%%")
+		t.Fatalf("Bloom cache miss rate of %.1f%% is more than 5%%", 100.0*float64(cacheFails)/float64(1000))
 	}
 
 	cacheFails = 0
@@ -134,7 +134,7 @@ func TestHasIsBloomCached(t *testing.T) {
 		t.Fatalf("expected datastore hit: %d", cacheFails)
 	}
 
-	if has, err := cachedbs.Has(block.Cid()); !has || err != nil {
+	if has, err := cachedbs.Has(block.Cid().Hash()); !has || err != nil {
 		t.Fatal("has gave wrong response")
 	}
 

@@ -7,6 +7,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	metrics "github.com/ipfs/go-metrics-interface"
+	mh "github.com/multiformats/go-multihash"
 )
 
 type cacheHave bool
@@ -35,13 +36,13 @@ func newARCCachedBS(ctx context.Context, bs Blockstore, lruSize int) (*arccache,
 	return c, nil
 }
 
-func (b *arccache) DeleteBlock(k cid.Cid) error {
+func (b *arccache) Delete(k mh.Multihash) error {
 	if has, _, ok := b.hasCached(k); ok && !has {
 		return ErrNotFound
 	}
 
-	b.arc.Remove(k) // Invalidate cache before deleting.
-	err := b.blockstore.DeleteBlock(k)
+	b.arc.Remove(string(k)) // Invalidate cache before deleting.
+	err := b.blockstore.Delete(k)
 	switch err {
 	case nil, ErrNotFound:
 		b.cacheHave(k, false)
@@ -53,16 +54,16 @@ func (b *arccache) DeleteBlock(k cid.Cid) error {
 
 // if ok == false has is inconclusive
 // if ok == true then has respons to question: is it contained
-func (b *arccache) hasCached(k cid.Cid) (has bool, size int, ok bool) {
+func (b *arccache) hasCached(k mh.Multihash) (has bool, size int, ok bool) {
 	b.total.Inc()
-	if !k.Defined() {
+	if k == nil {
 		log.Error("undefined cid in arccache")
 		// Return cache invalid so the call to blockstore happens
 		// in case of invalid key and correct error is created.
 		return false, -1, false
 	}
 
-	h, ok := b.arc.Get(k.KeyString())
+	h, ok := b.arc.Get(string(k))
 	if ok {
 		b.hits.Inc()
 		switch h := h.(type) {
@@ -75,7 +76,7 @@ func (b *arccache) hasCached(k cid.Cid) (has bool, size int, ok bool) {
 	return false, -1, false
 }
 
-func (b *arccache) Has(k cid.Cid) (bool, error) {
+func (b *arccache) Has(k mh.Multihash) (bool, error) {
 	if has, _, ok := b.hasCached(k); ok {
 		return has, nil
 	}
@@ -87,7 +88,7 @@ func (b *arccache) Has(k cid.Cid) (bool, error) {
 	return has, nil
 }
 
-func (b *arccache) GetSize(k cid.Cid) (int, error) {
+func (b *arccache) GetSize(k mh.Multihash) (int, error) {
 	if _, blockSize, ok := b.hasCached(k); ok {
 		return blockSize, nil
 	}
@@ -106,27 +107,27 @@ func (b *arccache) Get(k cid.Cid) (blocks.Block, error) {
 		return nil, ErrNotFound
 	}
 
-	if has, _, ok := b.hasCached(k); ok && !has {
+	if has, _, ok := b.hasCached(k.Hash()); ok && !has {
 		return nil, ErrNotFound
 	}
 
 	bl, err := b.blockstore.Get(k)
 	if bl == nil && err == ErrNotFound {
-		b.cacheHave(k, false)
+		b.cacheHave(k.Hash(), false)
 	} else if bl != nil {
-		b.cacheSize(k, len(bl.RawData()))
+		b.cacheSize(k.Hash(), len(bl.RawData()))
 	}
 	return bl, err
 }
 
 func (b *arccache) Put(bl blocks.Block) error {
-	if has, _, ok := b.hasCached(bl.Cid()); ok && has {
+	if has, _, ok := b.hasCached(bl.Cid().Hash()); ok && has {
 		return nil
 	}
 
 	err := b.blockstore.Put(bl)
 	if err == nil {
-		b.cacheSize(bl.Cid(), len(bl.RawData()))
+		b.cacheSize(bl.Cid().Hash(), len(bl.RawData()))
 	}
 	return err
 }
@@ -136,7 +137,7 @@ func (b *arccache) PutMany(bs []blocks.Block) error {
 	for _, block := range bs {
 		// call put on block if result is inconclusive or we are sure that
 		// the block isn't in storage
-		if has, _, ok := b.hasCached(block.Cid()); !ok || (ok && !has) {
+		if has, _, ok := b.hasCached(block.Cid().Hash()); !ok || (ok && !has) {
 			good = append(good, block)
 		}
 	}
@@ -145,7 +146,7 @@ func (b *arccache) PutMany(bs []blocks.Block) error {
 		return err
 	}
 	for _, block := range good {
-		b.cacheSize(block.Cid(), len(block.RawData()))
+		b.cacheSize(block.Cid().Hash(), len(block.RawData()))
 	}
 	return nil
 }
@@ -154,15 +155,15 @@ func (b *arccache) HashOnRead(enabled bool) {
 	b.blockstore.HashOnRead(enabled)
 }
 
-func (b *arccache) cacheHave(c cid.Cid, have bool) {
-	b.arc.Add(c.KeyString(), cacheHave(have))
+func (b *arccache) cacheHave(k mh.Multihash, have bool) {
+	b.arc.Add(string(k), cacheHave(have))
 }
 
-func (b *arccache) cacheSize(c cid.Cid, blockSize int) {
-	b.arc.Add(c.KeyString(), cacheSize(blockSize))
+func (b *arccache) cacheSize(k mh.Multihash, blockSize int) {
+	b.arc.Add(string(k), cacheSize(blockSize))
 }
 
-func (b *arccache) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
+func (b *arccache) AllKeysChan(ctx context.Context) (<-chan mh.Multihash, error) {
 	return b.blockstore.AllKeysChan(ctx)
 }
 

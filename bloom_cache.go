@@ -10,6 +10,7 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	metrics "github.com/ipfs/go-metrics-interface"
+	mh "github.com/multiformats/go-multihash"
 )
 
 // bloomCached returns a Blockstore that caches Has requests using a Bloom
@@ -103,7 +104,7 @@ func (b *bloomcache) build(ctx context.Context) error {
 				atomic.StoreInt32(&b.active, 1)
 				return nil
 			}
-			b.bloom.AddTS(key.Bytes()) // Use binary key, the more compact the better
+			b.bloom.AddTS(key) // Use binary key, the more compact the better
 		case <-ctx.Done():
 			b.buildErr = ctx.Err()
 			return b.buildErr
@@ -111,26 +112,26 @@ func (b *bloomcache) build(ctx context.Context) error {
 	}
 }
 
-func (b *bloomcache) DeleteBlock(k cid.Cid) error {
+func (b *bloomcache) Delete(k mh.Multihash) error {
 	if has, ok := b.hasCached(k); ok && !has {
 		return ErrNotFound
 	}
 
-	return b.blockstore.DeleteBlock(k)
+	return b.blockstore.Delete(k)
 }
 
 // if ok == false has is inconclusive
 // if ok == true then has respons to question: is it contained
-func (b *bloomcache) hasCached(k cid.Cid) (has bool, ok bool) {
+func (b *bloomcache) hasCached(k mh.Multihash) (has bool, ok bool) {
 	b.total.Inc()
-	if !k.Defined() {
+	if k == nil {
 		log.Error("undefined in bloom cache")
 		// Return cache invalid so call to blockstore
 		// in case of invalid key is forwarded deeper
 		return false, false
 	}
 	if b.BloomActive() {
-		blr := b.bloom.HasTS(k.Bytes())
+		blr := b.bloom.HasTS(k)
 		if !blr { // not contained in bloom is only conclusive answer bloom gives
 			b.hits.Inc()
 			return false, true
@@ -139,7 +140,7 @@ func (b *bloomcache) hasCached(k cid.Cid) (has bool, ok bool) {
 	return false, false
 }
 
-func (b *bloomcache) Has(k cid.Cid) (bool, error) {
+func (b *bloomcache) Has(k mh.Multihash) (bool, error) {
 	if has, ok := b.hasCached(k); ok {
 		return has, nil
 	}
@@ -147,12 +148,12 @@ func (b *bloomcache) Has(k cid.Cid) (bool, error) {
 	return b.blockstore.Has(k)
 }
 
-func (b *bloomcache) GetSize(k cid.Cid) (int, error) {
-  return b.blockstore.GetSize(k)
+func (b *bloomcache) GetSize(k mh.Multihash) (int, error) {
+	return b.blockstore.GetSize(k)
 }
 
 func (b *bloomcache) Get(k cid.Cid) (blocks.Block, error) {
-	if has, ok := b.hasCached(k); ok && !has {
+	if has, ok := b.hasCached(k.Hash()); ok && !has {
 		return nil, ErrNotFound
 	}
 
@@ -163,7 +164,7 @@ func (b *bloomcache) Put(bl blocks.Block) error {
 	// See comment in PutMany
 	err := b.blockstore.Put(bl)
 	if err == nil {
-		b.bloom.AddTS(bl.Cid().Bytes())
+		b.bloom.AddTS(bl.Cid().Hash())
 	}
 	return err
 }
@@ -178,7 +179,7 @@ func (b *bloomcache) PutMany(bs []blocks.Block) error {
 		return err
 	}
 	for _, bl := range bs {
-		b.bloom.AddTS(bl.Cid().Bytes())
+		b.bloom.AddTS(bl.Cid().Hash())
 	}
 	return nil
 }
@@ -187,7 +188,7 @@ func (b *bloomcache) HashOnRead(enabled bool) {
 	b.blockstore.HashOnRead(enabled)
 }
 
-func (b *bloomcache) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
+func (b *bloomcache) AllKeysChan(ctx context.Context) (<-chan mh.Multihash, error) {
 	return b.blockstore.AllKeysChan(ctx)
 }
 
