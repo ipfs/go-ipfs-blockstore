@@ -9,9 +9,9 @@
   "gxDependencies": [
     {
       "author": "stebalien",
-      "hash": "QmR54CzE4UcdFAZDehj6HFyy3eSHhVsJUpjfnhCmscuStS",
+      "hash": "QmWAzSEoqZ6xU6pu8yL8e5WaMb7wtbfbhhN4p1DknUPtr3",
       "name": "go-block-format",
-      "version": "0.1.10"
+      "version": "0.1.11"
     },
     {
       "author": "jbenet",
@@ -33,15 +33,15 @@
     },
     {
       "author": "whyrusleeping",
-      "hash": "QmYjnkEL7i731PirfVH1sis89evN7jt4otSHw5D2xXXwUV",
+      "hash": "QmZFbDTY9jfSBms2MchvYM9oYRbAF19K7Pby47yDBfpPrb",
       "name": "go-cid",
-      "version": "0.7.25"
+      "version": "0.8.0"
     },
     {
       "author": "hector",
-      "hash": "QmSLS8mMWsm54vdQuwgde9wBgLg5usVQY4i9r8kXhfje8g",
+      "hash": "Qmd39D2vUhmPKQA2fgykjo2JXwekHKeJUggmGRpYuVMA2Z",
       "name": "go-ipfs-ds-help",
-      "version": "0.0.8"
+      "version": "0.0.9"
     },
     {
       "author": "kubuxu",
@@ -60,6 +60,6 @@
   "license": "MIT",
   "name": "go-ipfs-blockstore",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.0.17"
+  "version": "0.0.18"
 }
 
