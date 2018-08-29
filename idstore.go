@@ -18,7 +18,8 @@ func NewIdStore(bs Blockstore) Blockstore {
 }
 
 func extractContents(k *cid.Cid) (bool, []byte) {
-	dmh, err := mh.Decode(k.Hash())
+	// FIXME(steb)
+	dmh, err := mh.Decode(k.Hash().Bytes())
 	if err != nil || dmh.Code != mh.ID {
 		return false, nil
 	}
