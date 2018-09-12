@@ -39,9 +39,9 @@
     },
     {
       "author": "hector",
-      "hash": "QmXejiSr776HgKLEGSs7unW7GT82AgfMbQX5crfSybGU8b",
+      "hash": "QmPQ7bVbZAbGaJkBVJeTkkKXvLLZeN9CLWTf5fzUQ8yeWs",
       "name": "go-ipfs-ds-help",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "author": "kubuxu",
@@ -60,6 +60,6 @@
   "license": "MIT",
   "name": "go-ipfs-blockstore",
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
 
