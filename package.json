@@ -15,9 +15,9 @@
     },
     {
       "author": "jbenet",
-      "hash": "QmUyz7JTJzgegC6tiJrfby3mPhzcdswVtG4x58TQ6pq8jV",
+      "hash": "QmaRb5yNXKonhbkpNxNawoydk4N6es6b4fPj19sjEKsh5D",
       "name": "go-datastore",
-      "version": "3.2.0"
+      "version": "3.4.0"
     },
     {
       "author": "ipfs",
@@ -39,9 +39,9 @@
     },
     {
       "author": "hector",
-      "hash": "QmUDTSi6zJ6ACyQaKtxscCUxrg5DaXs9r4RQUPFQXGPHpo",
+      "hash": "QmS73grfbWgWrNztd8Lns9GCG3jjRNDfcPYg2VYQzKDZSt",
       "name": "go-ipfs-ds-help",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     {
       "author": "kubuxu",
