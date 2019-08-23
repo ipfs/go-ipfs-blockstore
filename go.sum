@@ -12,8 +12,8 @@ github.com/gxed/hashland/murmur3 v0.0.1 h1:SheiaIt0sda5K+8FLz952/1iWS9zrnKsEJaOJ
 github.com/gxed/hashland/murmur3 v0.0.1/go.mod h1:KjXop02n4/ckmZSnY2+HKcLud/tcmvhST0bie/0lS48=
 github.com/hashicorp/golang-lru v0.5.1 h1:0hERBMJE1eitiLkihrMvRVBYAkpHzc/J3QdDN+dAcgU=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
-github.com/ipfs/bbloom v0.0.1 h1:s7KkiBPfxCeDVo47KySjK0ACPc5GJRUxFpdyWEuDjhw=
-github.com/ipfs/bbloom v0.0.1/go.mod h1:oqo8CVWsJFMOZqTglBG4wydCE4IQA/G2/SEofB0rjUI=
+github.com/ipfs/bbloom v0.0.3 h1:IK4vb8M08SL4pJ925AmqvDv28ASEkwhudq3HNoWE5O4=
+github.com/ipfs/bbloom v0.0.3/go.mod h1:cS9YprKXpoZ9lT0n/Mw/a6/aFV6DTjTLYHeA+gyqMG0=
 github.com/ipfs/go-block-format v0.0.1 h1:GjLpqsPNn2KbzA2GuG+hsUyxMhQ1xXgffWqWOee9e9o=
 github.com/ipfs/go-block-format v0.0.1/go.mod h1:DK/YYcsSUIVAFNwo/KZCdIIbpN0ROH/baNLgayt4pFc=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
