@@ -87,8 +87,6 @@ func (b *bloomcache) Wait(ctx context.Context) error {
 }
 
 func (b *bloomcache) build(ctx context.Context) error {
-	evt := log.EventBegin(ctx, "bloomcache.build")
-	defer evt.Done()
 	defer close(b.buildChan)
 
 	ch, err := b.blockstore.AllKeysChan(ctx)
