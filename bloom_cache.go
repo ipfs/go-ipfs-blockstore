@@ -34,7 +34,7 @@ func bloomCached(ctx context.Context, bs Blockstore, bloomSize, hashCount int) (
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				log.Warning("Cache rebuild closed by context finishing: ", err)
+				log.Warn("Cache rebuild closed by context finishing: ", err)
 			default:
 				log.Error(err)
 			}

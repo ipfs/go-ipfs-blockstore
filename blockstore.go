@@ -222,7 +222,7 @@ func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 			// need to convert to key.Key using key.KeyFromDsKey.
 			k, err := dshelp.DsKeyToCid(ds.RawKey(e.Key))
 			if err != nil {
-				log.Warningf("error parsing key from DsKey: %s", err)
+				log.Warnf("error parsing key from DsKey: %s", err)
 				continue
 			}
 
