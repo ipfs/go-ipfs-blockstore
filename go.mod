@@ -1,7 +1,7 @@
 module github.com/ipfs/go-ipfs-blockstore
 
 require (
-	github.com/hashicorp/golang-lru v0.5.3
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/bbloom v0.0.4
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.4
