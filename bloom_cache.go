@@ -51,7 +51,7 @@ func bloomCached(ctx context.Context, bs Blockstore, bloomSize, hashCount int) (
 				case <-ctx.Done():
 					return
 				case <-t.C:
-					fill.Set(bc.bloom.FillRatio())
+					fill.Set(bc.bloom.FillRatioTS())
 				}
 			}
 		}
@@ -113,7 +113,7 @@ func (b *bloomcache) build(ctx context.Context) error {
 
 func (b *bloomcache) DeleteBlock(k cid.Cid) error {
 	if has, ok := b.hasCached(k); ok && !has {
-		return ErrNotFound
+		return nil
 	}
 
 	return b.blockstore.DeleteBlock(k)
@@ -148,7 +148,7 @@ func (b *bloomcache) Has(k cid.Cid) (bool, error) {
 }
 
 func (b *bloomcache) GetSize(k cid.Cid) (int, error) {
-  return b.blockstore.GetSize(k)
+	return b.blockstore.GetSize(k)
 }
 
 func (b *bloomcache) Get(k cid.Cid) (blocks.Block, error) {
