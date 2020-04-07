@@ -14,10 +14,11 @@ import (
 	dsns "github.com/ipfs/go-datastore/namespace"
 	dsq "github.com/ipfs/go-datastore/query"
 	dshelp "github.com/ipfs/go-ipfs-ds-help"
+	ipld "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 )
 
-var log = logging.Logger("blockstore")
+var logger = logging.Logger("blockstore")
 
 // BlockPrefix namespaces blockstore datastores
 var BlockPrefix = ds.NewKey("blocks")
@@ -25,9 +26,6 @@ var BlockPrefix = ds.NewKey("blocks")
 // ErrHashMismatch is an error returned when the hash of a block
 // is different than expected.
 var ErrHashMismatch = errors.New("block in storage has different hash than requested")
-
-// ErrNotFound is an error returned when a block is not found.
-var ErrNotFound = errors.New("blockstore: block not found")
 
 // Blockstore wraps a Datastore block-centered methods and provides a layer
 // of abstraction which allows to add different caching strategies.
@@ -116,12 +114,12 @@ func (bs *blockstore) HashOnRead(enabled bool) {
 
 func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
 	if !k.Defined() {
-		log.Error("undefined cid in blockstore")
-		return nil, ErrNotFound
+		logger.Error("undefined cid in blockstore")
+		return nil, ipld.ErrNotFound{k}
 	}
 	bdata, err := bs.datastore.Get(dshelp.MultihashToDsKey(k.Hash()))
 	if err == ds.ErrNotFound {
-		return nil, ErrNotFound
+		return nil, ipld.ErrNotFound{k}
 	}
 	if err != nil {
 		return nil, err
@@ -179,7 +177,7 @@ func (bs *blockstore) Has(k cid.Cid) (bool, error) {
 func (bs *blockstore) GetSize(k cid.Cid) (int, error) {
 	size, err := bs.datastore.GetSize(dshelp.MultihashToDsKey(k.Hash()))
 	if err == ds.ErrNotFound {
-		return -1, ErrNotFound
+		return -1, ipld.ErrNotFound{k}
 	}
 	return size, err
 }
@@ -214,14 +212,14 @@ func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 				return
 			}
 			if e.Error != nil {
-				log.Errorf("blockstore.AllKeysChan got err: %s", e.Error)
+				logger.Errorf("blockstore.AllKeysChan got err: %s", e.Error)
 				return
 			}
 
 			// need to convert to key.Key using key.KeyFromDsKey.
 			bk, err := dshelp.BinaryFromDsKey(ds.RawKey(e.Key))
 			if err != nil {
-				log.Warningf("error parsing key from binary: %s", err)
+				logger.Warningf("error parsing key from binary: %s", err)
 				continue
 			}
 			k := cid.NewCidV1(cid.Raw, bk)

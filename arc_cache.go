@@ -6,6 +6,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
+	ipld "github.com/ipfs/go-ipld-format"
 	metrics "github.com/ipfs/go-metrics-interface"
 )
 
@@ -53,7 +54,7 @@ func (b *arccache) DeleteBlock(k cid.Cid) error {
 func (b *arccache) hasCached(k cid.Cid) (has bool, size int, ok bool) {
 	b.total.Inc()
 	if !k.Defined() {
-		log.Error("undefined cid in arccache")
+		logger.Error("undefined cid in arccache")
 		// Return cache invalid so the call to blockstore happens
 		// in case of invalid key and correct error is created.
 		return false, -1, false
@@ -88,7 +89,7 @@ func (b *arccache) GetSize(k cid.Cid) (int, error) {
 	if has, blockSize, ok := b.hasCached(k); ok {
 		if !has {
 			// don't have it, return
-			return -1, ErrNotFound
+			return -1, ipld.ErrNotFound{k}
 		}
 		if blockSize >= 0 {
 			// have it and we know the size
@@ -97,7 +98,7 @@ func (b *arccache) GetSize(k cid.Cid) (int, error) {
 		// we have it but don't know the size, ask the datastore.
 	}
 	blockSize, err := b.blockstore.GetSize(k)
-	if err == ErrNotFound {
+	if ipld.IsNotFound(err) {
 		b.cacheHave(k, false)
 	} else if err == nil {
 		b.cacheSize(k, blockSize)
@@ -107,16 +108,16 @@ func (b *arccache) GetSize(k cid.Cid) (int, error) {
 
 func (b *arccache) Get(k cid.Cid) (blocks.Block, error) {
 	if !k.Defined() {
-		log.Error("undefined cid in arc cache")
-		return nil, ErrNotFound
+		logger.Error("undefined cid in arc cache")
+		return nil, ipld.ErrNotFound{k}
 	}
 
 	if has, _, ok := b.hasCached(k); ok && !has {
-		return nil, ErrNotFound
+		return nil, ipld.ErrNotFound{k}
 	}
 
 	bl, err := b.blockstore.Get(k)
-	if bl == nil && err == ErrNotFound {
+	if bl == nil && ipld.IsNotFound(err) {
 		b.cacheHave(k, false)
 	} else if bl != nil {
 		b.cacheSize(k, len(bl.RawData()))

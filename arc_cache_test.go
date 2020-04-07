@@ -8,6 +8,7 @@ import (
 	cid "github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	syncds "github.com/ipfs/go-datastore/sync"
+	ipld "github.com/ipfs/go-ipld-format"
 )
 
 var exampleBlock = blocks.NewBlock([]byte("foo"))
@@ -107,7 +108,7 @@ func TestGetFillsCache(t *testing.T) {
 	if has, err := arc.Has(exampleBlock.Cid()); has || err != nil {
 		t.Fatal("has was true but there is no such block")
 	}
-	if _, err := arc.GetSize(exampleBlock.Cid()); err != ErrNotFound {
+	if _, err := arc.GetSize(exampleBlock.Cid()); !ipld.IsNotFound(err) {
 		t.Fatal("getsize was true but there is no such block")
 	}
 
@@ -135,7 +136,7 @@ func TestGetAndDeleteFalseShortCircuit(t *testing.T) {
 
 	trap("get hit datastore", cd, t)
 
-	if bl, err := arc.Get(exampleBlock.Cid()); bl != nil || err != ErrNotFound {
+	if bl, err := arc.Get(exampleBlock.Cid()); bl != nil || !ipld.IsNotFound(err) {
 		t.Fatal("get returned invalid result")
 	}
 
@@ -222,7 +223,7 @@ func TestGetSizeMissingZeroSizeBlock(t *testing.T) {
 	arc.Get(missingBlock.Cid())
 
 	trap("has hit datastore", cd, t)
-	if _, err := arc.GetSize(missingBlock.Cid()); err != ErrNotFound {
+	if _, err := arc.GetSize(missingBlock.Cid()); !ipld.IsNotFound(err) {
 		t.Fatal("getsize returned invalid result")
 	}
 }

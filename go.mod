@@ -8,9 +8,11 @@ require (
 	github.com/ipfs/go-datastore v0.4.2
 	github.com/ipfs/go-ipfs-ds-help v1.0.0
 	github.com/ipfs/go-ipfs-util v0.0.1
+	github.com/ipfs/go-ipld-format v0.1.0
 	github.com/ipfs/go-log v0.0.1
 	github.com/ipfs/go-metrics-interface v0.0.1
 	github.com/multiformats/go-multihash v0.0.13
+	github.com/opentracing/opentracing-go v1.0.2
 )
 
 go 1.13
