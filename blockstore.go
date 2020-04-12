@@ -50,10 +50,6 @@ type Blockstore interface {
 	// the CIDs in the Blockstore can be read. It should respect
 	// the given context, closing the channel if it becomes Done.
 	AllKeysChan(ctx context.Context) (<-chan cid.Cid, error)
-
-	// HashOnRead specifies if every read block should be
-	// rehashed to make sure it matches its CID.
-	HashOnRead(enabled bool)
 }
 
 // GCLocker abstract functionality to lock a blockstore when performing
@@ -106,12 +102,6 @@ func NewBlockstore(d ds.Batching) Blockstore {
 
 type blockstore struct {
 	datastore ds.Batching
-
-	rehash bool
-}
-
-func (bs *blockstore) HashOnRead(enabled bool) {
-	bs.rehash = enabled
 }
 
 func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
@@ -125,18 +115,6 @@ func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
 	}
 	if err != nil {
 		return nil, err
-	}
-	if bs.rehash {
-		rbcid, err := k.Prefix().Sum(bdata)
-		if err != nil {
-			return nil, err
-		}
-
-		if !rbcid.Equals(k) {
-			return nil, ErrHashMismatch
-		}
-
-		return blocks.NewBlockWithCid(bdata, rbcid)
 	}
 	return blocks.NewBlockWithCid(bdata, k)
 }

@@ -136,14 +136,14 @@ func TestPutUsesHas(t *testing.T) {
 	}
 }
 
-func TestHashOnRead(t *testing.T) {
+func TestValidatingBlockstore(t *testing.T) {
 	orginalDebug := u.Debug
 	defer (func() {
 		u.Debug = orginalDebug
 	})()
 	u.Debug = false
 
-	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
+	bs := ValidatingBlockstore{NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))}
 	bl := blocks.NewBlock([]byte("some data"))
 	blBad, err := blocks.NewBlockWithCid([]byte("some other data"), bl.Cid())
 	if err != nil {
@@ -152,7 +152,6 @@ func TestHashOnRead(t *testing.T) {
 	bl2 := blocks.NewBlock([]byte("some other data"))
 	bs.Put(blBad)
 	bs.Put(bl2)
-	bs.HashOnRead(true)
 
 	if _, err := bs.Get(bl.Cid()); err != ErrHashMismatch {
 		t.Fatalf("expected '%v' got '%v'\n", ErrHashMismatch, err)

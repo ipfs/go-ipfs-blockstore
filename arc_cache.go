@@ -155,10 +155,6 @@ func (b *arccache) PutMany(bs []blocks.Block) error {
 	return nil
 }
 
-func (b *arccache) HashOnRead(enabled bool) {
-	b.blockstore.HashOnRead(enabled)
-}
-
 func (b *arccache) cacheHave(c cid.Cid, have bool) {
 	b.arc.Add(string(c.Hash()), cacheHave(have))
 }
