@@ -183,10 +183,6 @@ func (b *bloomcache) PutMany(bs []blocks.Block) error {
 	return nil
 }
 
-func (b *bloomcache) HashOnRead(enabled bool) {
-	b.blockstore.HashOnRead(enabled)
-}
-
 func (b *bloomcache) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return b.blockstore.AllKeysChan(ctx)
 }

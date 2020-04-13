@@ -77,10 +77,6 @@ func (b *idstore) PutMany(bs []blocks.Block) error {
 	return b.bs.PutMany(toPut)
 }
 
-func (b *idstore) HashOnRead(enabled bool) {
-	b.bs.HashOnRead(enabled)
-}
-
 func (b *idstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return b.bs.AllKeysChan(ctx)
 }
