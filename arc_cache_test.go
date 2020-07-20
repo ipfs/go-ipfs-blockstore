@@ -46,9 +46,11 @@ func untrap(cd *callbackDatastore) {
 }
 
 func TestRemoveCacheEntryOnDelete(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
 
-	arc.Put(exampleBlock)
+	arc.Put(ctx, exampleBlock)
 
 	cd.Lock()
 	writeHitTheDatastore := false
@@ -58,88 +60,96 @@ func TestRemoveCacheEntryOnDelete(t *testing.T) {
 		writeHitTheDatastore = true
 	})
 
-	arc.DeleteBlock(exampleBlock.Cid())
-	arc.Put(exampleBlock)
+	arc.DeleteBlock(ctx, exampleBlock.Cid())
+	arc.Put(ctx, exampleBlock)
 	if !writeHitTheDatastore {
 		t.Fail()
 	}
 }
 
 func TestElideDuplicateWrite(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
 
-	arc.Put(exampleBlock)
+	arc.Put(ctx, exampleBlock)
 	trap("write hit datastore", cd, t)
-	arc.Put(exampleBlock)
+	arc.Put(ctx, exampleBlock)
 }
 
 func TestHasRequestTriggersCache(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
 
-	arc.Has(exampleBlock.Cid())
+	arc.Has(ctx, exampleBlock.Cid())
 	trap("has hit datastore", cd, t)
-	if has, err := arc.Has(exampleBlock.Cid()); has || err != nil {
+	if has, err := arc.Has(ctx, exampleBlock.Cid()); has || err != nil {
 		t.Fatal("has was true but there is no such block")
 	}
 
 	untrap(cd)
-	err := arc.Put(exampleBlock)
+	err := arc.Put(ctx, exampleBlock)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	trap("has hit datastore", cd, t)
 
-	if has, err := arc.Has(exampleBlock.Cid()); !has || err != nil {
+	if has, err := arc.Has(ctx, exampleBlock.Cid()); !has || err != nil {
 		t.Fatal("has returned invalid result")
 	}
 }
 
 func TestGetFillsCache(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
 
-	if bl, err := arc.Get(exampleBlock.Cid()); bl != nil || err == nil {
+	if bl, err := arc.Get(ctx, exampleBlock.Cid()); bl != nil || err == nil {
 		t.Fatal("block was found or there was no error")
 	}
 
 	trap("has hit datastore", cd, t)
 
-	if has, err := arc.Has(exampleBlock.Cid()); has || err != nil {
+	if has, err := arc.Has(ctx, exampleBlock.Cid()); has || err != nil {
 		t.Fatal("has was true but there is no such block")
 	}
-	if _, err := arc.GetSize(exampleBlock.Cid()); err != ErrNotFound {
+	if _, err := arc.GetSize(ctx, exampleBlock.Cid()); err != ErrNotFound {
 		t.Fatal("getsize was true but there is no such block")
 	}
 
 	untrap(cd)
 
-	if err := arc.Put(exampleBlock); err != nil {
+	if err := arc.Put(ctx, exampleBlock); err != nil {
 		t.Fatal(err)
 	}
 
 	trap("has hit datastore", cd, t)
 
-	if has, err := arc.Has(exampleBlock.Cid()); !has || err != nil {
+	if has, err := arc.Has(ctx, exampleBlock.Cid()); !has || err != nil {
 		t.Fatal("has returned invalid result")
 	}
-	if blockSize, err := arc.GetSize(exampleBlock.Cid()); blockSize == -1 || err != nil {
+	if blockSize, err := arc.GetSize(ctx, exampleBlock.Cid()); blockSize == -1 || err != nil {
 		t.Fatal("getsize returned invalid result", blockSize, err)
 	}
 }
 
 func TestGetAndDeleteFalseShortCircuit(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
 
-	arc.Has(exampleBlock.Cid())
-	arc.GetSize(exampleBlock.Cid())
+	arc.Has(ctx, exampleBlock.Cid())
+	arc.GetSize(ctx, exampleBlock.Cid())
 
 	trap("get hit datastore", cd, t)
 
-	if bl, err := arc.Get(exampleBlock.Cid()); bl != nil || err != ErrNotFound {
+	if bl, err := arc.Get(ctx, exampleBlock.Cid()); bl != nil || err != ErrNotFound {
 		t.Fatal("get returned invalid result")
 	}
 
-	if arc.DeleteBlock(exampleBlock.Cid()) != nil {
+	if arc.DeleteBlock(ctx, exampleBlock.Cid()) != nil {
 		t.Fatal("expected deletes to be idempotent")
 	}
 }
@@ -151,9 +161,11 @@ func TestArcCreationFailure(t *testing.T) {
 }
 
 func TestInvalidKey(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, _ := createStores(t)
 
-	bl, err := arc.Get(cid.Cid{})
+	bl, err := arc.Get(ctx, cid.Cid{})
 
 	if bl != nil {
 		t.Fatal("blocks should be nil")
@@ -164,32 +176,38 @@ func TestInvalidKey(t *testing.T) {
 }
 
 func TestHasAfterSucessfulGetIsCached(t *testing.T) {
+	ctx := context.Background()
+
 	arc, bs, cd := createStores(t)
 
-	bs.Put(exampleBlock)
+	bs.Put(ctx, exampleBlock)
 
-	arc.Get(exampleBlock.Cid())
+	arc.Get(ctx, exampleBlock.Cid())
 
 	trap("has hit datastore", cd, t)
-	arc.Has(exampleBlock.Cid())
+	arc.Has(ctx, exampleBlock.Cid())
 }
 
 func TestGetSizeAfterSucessfulGetIsCached(t *testing.T) {
+	ctx := context.Background()
+
 	arc, bs, cd := createStores(t)
 
-	bs.Put(exampleBlock)
+	bs.Put(ctx, exampleBlock)
 
-	arc.Get(exampleBlock.Cid())
+	arc.Get(ctx, exampleBlock.Cid())
 
 	trap("has hit datastore", cd, t)
-	arc.GetSize(exampleBlock.Cid())
+	arc.GetSize(ctx, exampleBlock.Cid())
 }
 
 func TestGetSizeAfterSucessfulHas(t *testing.T) {
+	ctx := context.Background()
+
 	arc, bs, _ := createStores(t)
 
-	bs.Put(exampleBlock)
-	has, err := arc.Has(exampleBlock.Cid())
+	bs.Put(ctx, exampleBlock)
+	has, err := arc.Has(ctx, exampleBlock.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +215,7 @@ func TestGetSizeAfterSucessfulHas(t *testing.T) {
 		t.Fatal("expected to have block")
 	}
 
-	if size, err := arc.GetSize(exampleBlock.Cid()); err != nil {
+	if size, err := arc.GetSize(ctx, exampleBlock.Cid()); err != nil {
 		t.Fatal(err)
 	} else if size != len(exampleBlock.RawData()) {
 		t.Fatalf("expected size %d, got %d", len(exampleBlock.RawData()), size)
@@ -205,34 +223,38 @@ func TestGetSizeAfterSucessfulHas(t *testing.T) {
 }
 
 func TestGetSizeMissingZeroSizeBlock(t *testing.T) {
+	ctx := context.Background()
+
 	arc, bs, cd := createStores(t)
 	emptyBlock := blocks.NewBlock([]byte{})
 	missingBlock := blocks.NewBlock([]byte("missingBlock"))
 
-	bs.Put(emptyBlock)
+	bs.Put(ctx, emptyBlock)
 
-	arc.Get(emptyBlock.Cid())
+	arc.Get(ctx, emptyBlock.Cid())
 
 	trap("has hit datastore", cd, t)
-	if blockSize, err := arc.GetSize(emptyBlock.Cid()); blockSize != 0 || err != nil {
+	if blockSize, err := arc.GetSize(ctx, emptyBlock.Cid()); blockSize != 0 || err != nil {
 		t.Fatal("getsize returned invalid result")
 	}
 	untrap(cd)
 
-	arc.Get(missingBlock.Cid())
+	arc.Get(ctx, missingBlock.Cid())
 
 	trap("has hit datastore", cd, t)
-	if _, err := arc.GetSize(missingBlock.Cid()); err != ErrNotFound {
+	if _, err := arc.GetSize(ctx, missingBlock.Cid()); err != ErrNotFound {
 		t.Fatal("getsize returned invalid result")
 	}
 }
 
 func TestDifferentKeyObjectsWork(t *testing.T) {
+	ctx := context.Background()
+
 	arc, bs, cd := createStores(t)
 
-	bs.Put(exampleBlock)
+	bs.Put(ctx, exampleBlock)
 
-	arc.Get(exampleBlock.Cid())
+	arc.Get(ctx, exampleBlock.Cid())
 
 	trap("has hit datastore", cd, t)
 	cidstr := exampleBlock.Cid().String()
@@ -242,20 +264,22 @@ func TestDifferentKeyObjectsWork(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	arc.Has(ncid)
+	arc.Has(ctx, ncid)
 }
 
 func TestPutManyCaches(t *testing.T) {
+	ctx := context.Background()
+
 	arc, _, cd := createStores(t)
-	arc.PutMany([]blocks.Block{exampleBlock})
+	arc.PutMany(ctx, []blocks.Block{exampleBlock})
 
 	trap("has hit datastore", cd, t)
-	arc.Has(exampleBlock.Cid())
-	arc.GetSize(exampleBlock.Cid())
+	arc.Has(ctx, exampleBlock.Cid())
+	arc.GetSize(ctx, exampleBlock.Cid())
 	untrap(cd)
-	arc.DeleteBlock(exampleBlock.Cid())
+	arc.DeleteBlock(ctx, exampleBlock.Cid())
 
-	arc.Put(exampleBlock)
+	arc.Put(ctx, exampleBlock)
 	trap("PunMany has hit datastore", cd, t)
-	arc.PutMany([]blocks.Block{exampleBlock})
+	arc.PutMany(ctx, []blocks.Block{exampleBlock})
 }
