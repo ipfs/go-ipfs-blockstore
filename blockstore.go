@@ -57,6 +57,17 @@ type Blockstore interface {
 	HashOnRead(enabled bool)
 }
 
+// Viewer can be implemented by blockstores that offer zero-copy access to
+// values.
+//
+// Callers of View must not mutate or retain the byte slice, as it could be
+// an mmapped memory region, or a pooled byte buffer.
+//
+// View is especially suitable for deserialising in place.
+type Viewer interface {
+	View(cid cid.Cid, callback func([]byte) error) error
+}
+
 // GCLocker abstract functionality to lock a blockstore when performing
 // garbage-collection operations.
 type GCLocker interface {

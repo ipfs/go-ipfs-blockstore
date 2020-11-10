@@ -18,10 +18,14 @@ type cacheSize int
 type arccache struct {
 	arc        *lru.TwoQueueCache
 	blockstore Blockstore
+	viewer     Viewer
 
 	hits  metrics.Counter
 	total metrics.Counter
 }
+
+var _ Blockstore = (*arccache)(nil)
+var _ Viewer = (*arccache)(nil)
 
 func newARCCachedBS(ctx context.Context, bs Blockstore, lruSize int) (*arccache, error) {
 	arc, err := lru.New2Q(lruSize)
@@ -31,7 +35,9 @@ func newARCCachedBS(ctx context.Context, bs Blockstore, lruSize int) (*arccache,
 	c := &arccache{arc: arc, blockstore: bs}
 	c.hits = metrics.NewCtx(ctx, "arc.hits_total", "Number of ARC cache hits").Counter()
 	c.total = metrics.NewCtx(ctx, "arc_total", "Total number of ARC cache requests").Counter()
-
+	if v, ok := bs.(Viewer); ok {
+		c.viewer = v
+	}
 	return c, nil
 }
 
@@ -103,6 +109,29 @@ func (b *arccache) GetSize(k cid.Cid) (int, error) {
 		b.cacheSize(k, blockSize)
 	}
 	return blockSize, err
+}
+
+func (b *arccache) View(k cid.Cid, callback func([]byte) error) error {
+	// shortcircuit and fall back to Get if the underlying store doesn't support
+	// Viewer.
+	if b.viewer == nil {
+		blk, err := b.Get(k)
+		if err != nil {
+			return err
+		}
+		return callback(blk.RawData())
+	}
+
+	if !k.Defined() {
+		log.Error("undefined cid in arc cache")
+		return ErrNotFound
+	}
+
+	if has, _, ok := b.hasCached(k); ok && !has {
+		return ErrNotFound
+	}
+
+	return b.viewer.View(k, callback)
 }
 
 func (b *arccache) Get(k cid.Cid) (blocks.Block, error) {
