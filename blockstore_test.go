@@ -53,6 +53,26 @@ func TestPutThenGetBlock(t *testing.T) {
 	}
 }
 
+func TestBlockSizeLimit(t *testing.T) {
+	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
+	data := make([]byte, maxBlockSize, maxBlockSize+1)
+
+	// Block at size limit is OK.
+	block := blocks.NewBlock(data)
+	err := bs.Put(block)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Block over limit causes error.
+	data = append(data, byte(0x2a))
+	block = blocks.NewBlock(data)
+	err = bs.Put(block)
+	if err != ErrTooLarge {
+		t.Fatal("did not get expected error")
+	}
+}
+
 func TestCidv0v1(t *testing.T) {
 	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
 	block := blocks.NewBlock([]byte("some data"))

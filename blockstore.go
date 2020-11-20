@@ -18,6 +18,9 @@ import (
 	uatomic "go.uber.org/atomic"
 )
 
+// Maximum block size allowed
+const maxBlockSize = 2 * 1024 * 1024
+
 var log = logging.Logger("blockstore")
 
 // BlockPrefix namespaces blockstore datastores
@@ -29,6 +32,9 @@ var ErrHashMismatch = errors.New("block in storage has different hash than reque
 
 // ErrNotFound is an error returned when a block is not found.
 var ErrNotFound = errors.New("blockstore: block not found")
+
+// ErrTooLarge is an error returned when a block is too large.
+var ErrTooLarge = errors.New("blockstore: block too large")
 
 // Blockstore wraps a Datastore block-centered methods and provides a layer
 // of abstraction which allows to add different caching strategies.
@@ -159,6 +165,9 @@ func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
 }
 
 func (bs *blockstore) Put(block blocks.Block) error {
+	if len(block.RawData()) > maxBlockSize {
+		return ErrTooLarge
+	}
 	k := dshelp.MultihashToDsKey(block.Cid().Hash())
 
 	// Has is cheaper than Put, so see if we already have it
