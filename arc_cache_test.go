@@ -2,12 +2,16 @@ package blockstore
 
 import (
 	"context"
+	"math/rand"
 	"testing"
+	"time"
 
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
 	syncds "github.com/ipfs/go-datastore/sync"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var exampleBlock = blocks.NewBlock([]byte("foo"))
@@ -26,7 +30,7 @@ func testArcCached(ctx context.Context, bs Blockstore) (*arccache, error) {
 	return nil, err
 }
 
-func createStores(t *testing.T) (*arccache, Blockstore, *callbackDatastore) {
+func createStores(t testing.TB) (*arccache, Blockstore, *callbackDatastore) {
 	cd := &callbackDatastore{f: func() {}, ds: ds.NewMapDatastore()}
 	bs := NewBlockstore(syncds.MutexWrap(cd))
 	arc, err := testArcCached(context.TODO(), bs)
@@ -258,4 +262,56 @@ func TestPutManyCaches(t *testing.T) {
 	arc.Put(exampleBlock)
 	trap("PunMany has hit datastore", cd, t)
 	arc.PutMany([]blocks.Block{exampleBlock})
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func Benchmark_SimplePutGet(b *testing.B) {
+	arc, _, _ := createStores(b)
+
+	trace := make([]blocks.Block, b.N)
+	for i := 0; i < b.N; i++ {
+		token := make([]byte, 4)
+		rand.Read(token)
+		trace[i] = blocks.NewBlock(token)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			require.NoError(b, arc.Put(trace[i]))
+		}
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, err := arc.Get(trace[i].Cid())
+		if i%2 == 0 {
+			assert.NoError(b, err)
+		}
+	}
+}
+
+func Benchmark_SimplePutDelete(b *testing.B) {
+	arc, _, _ := createStores(b)
+
+	trace := make([]blocks.Block, b.N)
+	for i := 0; i < b.N; i++ {
+		token := make([]byte, 4)
+		rand.Read(token)
+		trace[i] = blocks.NewBlock(token)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, arc.Put(trace[i]))
+	}
+
+	for i := 0; i < b.N; i++ {
+		err := arc.DeleteBlock(trace[i].Cid())
+		require.NoError(b, err)
+	}
 }
