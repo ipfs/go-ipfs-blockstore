@@ -10,7 +10,9 @@ import (
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	ds "github.com/ipfs/go-datastore"
+	delaystore "github.com/ipfs/go-datastore/delayed"
 	syncds "github.com/ipfs/go-datastore/sync"
+	delay "github.com/ipfs/go-ipfs-delay"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +36,17 @@ func testArcCached(ctx context.Context, bs Blockstore) (*arccache, error) {
 func createStores(t testing.TB) (*arccache, Blockstore, *callbackDatastore) {
 	cd := &callbackDatastore{f: func() {}, ds: ds.NewMapDatastore()}
 	bs := NewBlockstore(syncds.MutexWrap(cd))
+	arc, err := testArcCached(context.TODO(), bs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return arc, bs, cd
+}
+
+func createStoresWithDelay(t testing.TB, delayed delay.D) (*arccache, Blockstore, *callbackDatastore) {
+	cd := &callbackDatastore{f: func() {}, ds: ds.NewMapDatastore()}
+	slowStore := delaystore.New(cd, delayed)
+	bs := NewBlockstore(syncds.MutexWrap(slowStore))
 	arc, err := testArcCached(context.TODO(), bs)
 	if err != nil {
 		t.Fatal(err)
@@ -318,32 +331,36 @@ func Benchmark_SimplePutDelete(b *testing.B) {
 }
 
 func Benchmark_ThrashPut(b *testing.B) {
-	arc, _, _ := createStores(b)
-
 	table := []struct {
 		numBlocks int
 		threads   int
+		delay     time.Duration
 	}{
 		{
 			numBlocks: 1_000_000,
 			threads:   1,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   32,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   64,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   500,
+			delay:     time.Millisecond * 1,
 		},
 	}
 
 	for _, test := range table {
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
+			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
 			trace := make([]blocks.Block, test.numBlocks)
 			for i := 0; i < test.numBlocks; i++ {
 				token := make([]byte, 4)
@@ -386,32 +403,36 @@ func Benchmark_ThrashPut(b *testing.B) {
 }
 
 func Benchmark_ThrashGet(b *testing.B) {
-	arc, _, _ := createStores(b)
-
 	table := []struct {
 		numBlocks int
 		threads   int
+		delay     time.Duration
 	}{
 		{
 			numBlocks: 1_000_000,
 			threads:   1,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   32,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   64,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   500,
+			delay:     time.Millisecond * 1,
 		},
 	}
 
 	for _, test := range table {
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
+			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
 			trace := make([]blocks.Block, test.numBlocks)
 			for i := 0; i < test.numBlocks; i++ {
 				token := make([]byte, 4)
@@ -454,32 +475,36 @@ func Benchmark_ThrashGet(b *testing.B) {
 }
 
 func Benchmark_ThrashDelete(b *testing.B) {
-	arc, _, _ := createStores(b)
-
 	table := []struct {
 		numBlocks int
 		threads   int
+		delay     time.Duration
 	}{
 		{
 			numBlocks: 1_000_000,
 			threads:   1,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   32,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   64,
+			delay:     time.Millisecond * 1,
 		},
 		{
 			numBlocks: 1_000_000,
 			threads:   500,
+			delay:     time.Millisecond * 1,
 		},
 	}
 
 	for _, test := range table {
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
+			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
 			trace := make([]blocks.Block, test.numBlocks)
 			for i := 0; i < test.numBlocks; i++ {
 				token := make([]byte, 4)
