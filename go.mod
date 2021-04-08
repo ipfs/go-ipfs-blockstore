@@ -1,6 +1,7 @@
 module github.com/ipfs/go-ipfs-blockstore
 
 require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/bbloom v0.0.4
 	github.com/ipfs/go-block-format v0.0.2
@@ -13,7 +14,7 @@ require (
 	github.com/ipfs/go-metrics-interface v0.0.1
 	github.com/multiformats/go-multihash v0.0.13
 	github.com/stretchr/testify v1.3.0
-	go.uber.org/atomic v1.6.0
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 )
 
 go 1.13

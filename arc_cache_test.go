@@ -63,6 +63,82 @@ func untrap(cd *callbackDatastore) {
 	cd.SetFunc(func() {})
 }
 
+type storeThrasher struct {
+	store *arccache
+
+	trace []blocks.Block
+
+	numBlocks int
+	numThreads int
+
+
+	ctx context.Context
+	cancel context.CancelFunc
+}
+
+func NewThrasher(store *arccache, numBlocks, numThreads int) (*storeThrasher, []blocks.Block) {
+	t :=  &storeThrasher{
+		numBlocks: numBlocks,
+		numThreads: numThreads,
+		store:      store,
+	}
+	trace := make([]blocks.Block, t.numBlocks)
+	for i := 0; i < t.numBlocks; i++ {
+		token := make([]byte, 4)
+		rand.Read(token)
+		trace[i] = blocks.NewBlock(token)
+	}
+	t.trace = trace
+	t.ctx, t.cancel = context.WithCancel(context.Background())
+
+	return t, trace
+}
+
+func (t *storeThrasher) Destroy() {
+	t.cancel()
+	t.store = nil
+}
+
+func (t *storeThrasher) Start() {
+	for i := 0; i < t.numThreads; i++ {
+		go func() {
+			for {
+				select {
+				case <-t.ctx.Done():
+					return
+				default:
+					idx := rand.Intn(t.numBlocks - 1)
+					t.store.Put(t.trace[idx])
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-t.ctx.Done():
+					return
+				default:
+					idx := rand.Intn(t.numBlocks - 1)
+					t.store.Get(t.trace[idx].Cid())
+				}
+			}
+		}()
+
+		go func() {
+			for {
+				select {
+				case <-t.ctx.Done():
+					return
+				default:
+					idx := rand.Intn(t.numBlocks - 1)
+					t.store.DeleteBlock(t.trace[idx].Cid())
+				}
+			}
+		}()
+	}
+}
+
 func TestRemoveCacheEntryOnDelete(t *testing.T) {
 	arc, _, cd := createStores(t)
 
@@ -359,46 +435,18 @@ func Benchmark_ThrashPut(b *testing.B) {
 	}
 
 	for _, test := range table {
+		arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
+		thrasher, trace := NewThrasher(arc, test.numBlocks, test.threads)
+		thrasher.Start()
+
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
-			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
-			trace := make([]blocks.Block, test.numBlocks)
-			for i := 0; i < test.numBlocks; i++ {
-				token := make([]byte, 4)
-				rand.Read(token)
-				trace[i] = blocks.NewBlock(token)
-			}
-
-			for i := 0; i < test.threads; i++ {
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Put(trace[idx])
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Get(trace[idx].Cid())
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.DeleteBlock(trace[idx].Cid())
-					}
-				}()
-			}
-
 			b.ReportAllocs()
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
 				require.NoError(b, arc.Put(trace[i]))
 			}
-
 		})
+		thrasher.Destroy()
 	}
 }
 
@@ -431,46 +479,18 @@ func Benchmark_ThrashGet(b *testing.B) {
 	}
 
 	for _, test := range table {
+		arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
+		thrasher, trace := NewThrasher(arc, test.numBlocks, test.threads)
+		thrasher.Start()
+
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
-			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
-			trace := make([]blocks.Block, test.numBlocks)
-			for i := 0; i < test.numBlocks; i++ {
-				token := make([]byte, 4)
-				rand.Read(token)
-				trace[i] = blocks.NewBlock(token)
-			}
-
-			for i := 0; i < test.threads; i++ {
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Put(trace[idx])
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Get(trace[idx].Cid())
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.DeleteBlock(trace[idx].Cid())
-					}
-				}()
-			}
-
 			b.ReportAllocs()
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
 				arc.Get(trace[i].Cid())
 			}
-
 		})
+		thrasher.Destroy()
 	}
 }
 
@@ -503,45 +523,17 @@ func Benchmark_ThrashDelete(b *testing.B) {
 	}
 
 	for _, test := range table {
+		arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
+		thrasher, trace := NewThrasher(arc, test.numBlocks, test.threads)
+		thrasher.Start()
+
 		b.Run(fmt.Sprintf("%d_threads-%d_blocks", test.threads, test.numBlocks), func(b *testing.B) {
-			arc, _, _ := createStoresWithDelay(b, delay.Fixed(test.delay))
-			trace := make([]blocks.Block, test.numBlocks)
-			for i := 0; i < test.numBlocks; i++ {
-				token := make([]byte, 4)
-				rand.Read(token)
-				trace[i] = blocks.NewBlock(token)
-			}
-
-			for i := 0; i < test.threads; i++ {
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Put(trace[idx])
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.Get(trace[idx].Cid())
-					}
-				}()
-
-				go func() {
-					for {
-						idx := rand.Intn(test.numBlocks - 1)
-						arc.DeleteBlock(trace[idx].Cid())
-					}
-				}()
-			}
-
 			b.ReportAllocs()
 			b.ResetTimer()
-
 			for i := 0; i < b.N; i++ {
 				arc.DeleteBlock(trace[i].Cid())
 			}
-
 		})
+		thrasher.Destroy()
 	}
 }
