@@ -68,17 +68,16 @@ type storeThrasher struct {
 
 	trace []blocks.Block
 
-	numBlocks int
+	numBlocks  int
 	numThreads int
 
-
-	ctx context.Context
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 func NewThrasher(store *arccache, numBlocks, numThreads int) (*storeThrasher, []blocks.Block) {
-	t :=  &storeThrasher{
-		numBlocks: numBlocks,
+	t := &storeThrasher{
+		numBlocks:  numBlocks,
 		numThreads: numThreads,
 		store:      store,
 	}
