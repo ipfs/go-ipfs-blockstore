@@ -68,21 +68,21 @@ type storeThrasher struct {
 
 	trace []blocks.Block
 
-	numBlocks  int
-	numThreads int
+	numBlocks  int64
+	numThreads int64
 
 	ctx    context.Context
 	cancel context.CancelFunc
 }
 
-func NewThrasher(store *arccache, numBlocks, numThreads int) (*storeThrasher, []blocks.Block) {
+func NewThrasher(store *arccache, numBlocks, numThreads int64) (*storeThrasher, []blocks.Block) {
 	t := &storeThrasher{
 		numBlocks:  numBlocks,
 		numThreads: numThreads,
 		store:      store,
 	}
 	trace := make([]blocks.Block, t.numBlocks)
-	for i := 0; i < t.numBlocks; i++ {
+	for i := int64(0); i < t.numBlocks; i++ {
 		token := make([]byte, 4)
 		rand.Read(token)
 		trace[i] = blocks.NewBlock(token)
@@ -99,38 +99,41 @@ func (t *storeThrasher) Destroy() {
 }
 
 func (t *storeThrasher) Start() {
-	for i := 0; i < t.numThreads; i++ {
+	for i := int64(0); i < t.numThreads; i++ {
 		go func() {
+			rs := rand.NewSource(time.Now().UnixNano())
 			for {
 				select {
 				case <-t.ctx.Done():
 					return
 				default:
-					idx := rand.Intn(t.numBlocks - 1)
+					idx := rs.Int63() % t.numBlocks
 					t.store.Put(t.trace[idx])
 				}
 			}
 		}()
 
 		go func() {
+			rs := rand.NewSource(time.Now().UnixNano())
 			for {
 				select {
 				case <-t.ctx.Done():
 					return
 				default:
-					idx := rand.Intn(t.numBlocks - 1)
+					idx := rs.Int63() % t.numBlocks
 					t.store.Get(t.trace[idx].Cid())
 				}
 			}
 		}()
 
 		go func() {
+			rs := rand.NewSource(time.Now().UnixNano())
 			for {
 				select {
 				case <-t.ctx.Done():
 					return
 				default:
-					idx := rand.Intn(t.numBlocks - 1)
+					idx := rs.Int63() % t.numBlocks
 					t.store.DeleteBlock(t.trace[idx].Cid())
 				}
 			}
@@ -407,8 +410,8 @@ func Benchmark_SimplePutDelete(b *testing.B) {
 
 func Benchmark_ThrashPut(b *testing.B) {
 	table := []struct {
-		numBlocks int
-		threads   int
+		numBlocks int64
+		threads   int64
 		delay     time.Duration
 	}{
 		{
@@ -451,8 +454,8 @@ func Benchmark_ThrashPut(b *testing.B) {
 
 func Benchmark_ThrashGet(b *testing.B) {
 	table := []struct {
-		numBlocks int
-		threads   int
+		numBlocks int64
+		threads   int64
 		delay     time.Duration
 	}{
 		{
@@ -495,8 +498,8 @@ func Benchmark_ThrashGet(b *testing.B) {
 
 func Benchmark_ThrashDelete(b *testing.B) {
 	table := []struct {
-		numBlocks int
-		threads   int
+		numBlocks int64
+		threads   int64
 		delay     time.Duration
 	}{
 		{
