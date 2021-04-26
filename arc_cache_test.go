@@ -352,7 +352,7 @@ func TestPutManyCaches(t *testing.T) {
 	arc.DeleteBlock(exampleBlock.Cid())
 
 	arc.Put(exampleBlock)
-	trap("PunMany has hit datastore", cd, t)
+	trap("PutMany has hit datastore", cd, t)
 	arc.PutMany([]blocks.Block{exampleBlock})
 }
 
