@@ -1,6 +1,7 @@
 module github.com/ipfs/go-ipfs-blockstore
 
 require (
+	github.com/gammazero/kmutex v1.0.1
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/ipfs/bbloom v0.0.4
 	github.com/ipfs/go-block-format v0.0.3

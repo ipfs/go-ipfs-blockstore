@@ -3,6 +3,7 @@ package blockstore
 import (
 	"context"
 
+	"github.com/gammazero/kmutex"
 	lru "github.com/hashicorp/golang-lru"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
@@ -17,7 +18,9 @@ type cacheSize int
 // size. This provides block access-time improvements, allowing
 // to short-cut many searches without querying the underlying datastore.
 type arccache struct {
-	cache      *lru.TwoQueueCache
+	cache     *lru.TwoQueueCache
+	arcKMutex *kmutex.Kmutex
+
 	blockstore Blockstore
 	viewer     Viewer
 
@@ -33,7 +36,7 @@ func newARCCachedBS(ctx context.Context, bs Blockstore, lruSize int) (*arccache,
 	if err != nil {
 		return nil, err
 	}
-	c := &arccache{cache: cache, blockstore: bs}
+	c := &arccache{cache: cache, arcKMutex: kmutex.New(), blockstore: bs}
 	c.hits = metrics.NewCtx(ctx, "arc.hits_total", "Number of ARC cache hits").Counter()
 	c.total = metrics.NewCtx(ctx, "arc_total", "Total number of ARC cache requests").Counter()
 	if v, ok := bs.(Viewer); ok {
@@ -46,6 +49,9 @@ func (b *arccache) DeleteBlock(k cid.Cid) error {
 	if has, _, ok := b.queryCache(k); ok && !has {
 		return nil
 	}
+
+	b.arcKMutex.Lock(k)
+	defer b.arcKMutex.Unlock(k)
 
 	b.cache.Remove(k) // Invalidate cache before deleting.
 	err := b.blockstore.DeleteBlock(k)
@@ -79,6 +85,10 @@ func (b *arccache) GetSize(k cid.Cid) (int, error) {
 		}
 		// we have it but don't know the size, ask the datastore.
 	}
+
+	b.arcKMutex.Lock(k)
+	defer b.arcKMutex.Unlock(k)
+
 	blockSize, err := b.blockstore.GetSize(k)
 	if err == ErrNotFound {
 		b.cacheHave(k, false)
@@ -123,6 +133,9 @@ func (b *arccache) Get(k cid.Cid) (blocks.Block, error) {
 		return nil, ErrNotFound
 	}
 
+	b.arcKMutex.Lock(k)
+	defer b.arcKMutex.Unlock(k)
+
 	bl, err := b.blockstore.Get(k)
 	if bl == nil && err == ErrNotFound {
 		b.cacheHave(k, false)
@@ -136,6 +149,9 @@ func (b *arccache) Put(bl blocks.Block) error {
 	if has, _, ok := b.queryCache(bl.Cid()); ok && has {
 		return nil
 	}
+
+	b.arcKMutex.Lock(bl.Cid())
+	defer b.arcKMutex.Unlock(bl.Cid())
 
 	err := b.blockstore.Put(bl)
 	if err == nil {
@@ -151,8 +167,16 @@ func (b *arccache) PutMany(bs []blocks.Block) error {
 		// the block isn't in storage
 		if has, _, ok := b.queryCache(block.Cid()); !ok || (ok && !has) {
 			good = append(good, block)
+			b.arcKMutex.Lock(block.Cid())
 		}
 	}
+
+	defer func() {
+		for _, block := range good {
+			b.arcKMutex.Unlock(block.Cid())
+		}
+	}()
+
 	err := b.blockstore.PutMany(good)
 	if err != nil {
 		return err
