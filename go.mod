@@ -11,7 +11,7 @@ require (
 	github.com/ipfs/go-log v0.0.1
 	github.com/ipfs/go-metrics-interface v0.0.1
 	github.com/multiformats/go-multihash v0.0.14
-	go.uber.org/atomic v1.6.0
+	go.uber.org/atomic v1.7.0
 )
 
 go 1.15
