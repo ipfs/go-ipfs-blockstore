@@ -25,47 +25,47 @@ func extractContents(k cid.Cid) (bool, []byte) {
 	return true, dmh.Digest
 }
 
-func (b *idstore) DeleteBlock(k cid.Cid) error {
+func (b *idstore) DeleteBlock(ctx context.Context, k cid.Cid) error {
 	isId, _ := extractContents(k)
 	if isId {
 		return nil
 	}
-	return b.bs.DeleteBlock(k)
+	return b.bs.DeleteBlock(ctx, k)
 }
 
-func (b *idstore) Has(k cid.Cid) (bool, error) {
+func (b *idstore) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	isId, _ := extractContents(k)
 	if isId {
 		return true, nil
 	}
-	return b.bs.Has(k)
+	return b.bs.Has(ctx, k)
 }
 
-func (b *idstore) GetSize(k cid.Cid) (int, error) {
+func (b *idstore) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 	isId, bdata := extractContents(k)
 	if isId {
 		return len(bdata), nil
 	}
-	return b.bs.GetSize(k)
+	return b.bs.GetSize(ctx, k)
 }
 
-func (b *idstore) Get(k cid.Cid) (blocks.Block, error) {
+func (b *idstore) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 	isId, bdata := extractContents(k)
 	if isId {
 		return blocks.NewBlockWithCid(bdata, k)
 	}
-	return b.bs.Get(k)
+	return b.bs.Get(ctx, k)
 }
 
-func (b *idstore) Put(bl blocks.Block) error {
+func (b *idstore) Put(ctx context.Context, bl blocks.Block) error {
 	isId, _ := extractContents(bl.Cid())
 	if isId {
 		return nil
 	}
-	return b.bs.Put(bl)
+	return b.bs.Put(ctx, bl)
 }
 
-func (b *idstore) PutMany(bs []blocks.Block) error {
+func (b *idstore) PutMany(ctx context.Context, bs []blocks.Block) error {
 	toPut := make([]blocks.Block, 0, len(bs))
 	for _, bl := range bs {
 		isId, _ := extractContents(bl.Cid())
@@ -74,7 +74,7 @@ func (b *idstore) PutMany(bs []blocks.Block) error {
 		}
 		toPut = append(toPut, bl)
 	}
-	return b.bs.PutMany(toPut)
+	return b.bs.PutMany(ctx, toPut)
 }
 
 func (b *idstore) HashOnRead(enabled bool) {

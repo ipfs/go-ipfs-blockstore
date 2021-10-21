@@ -17,7 +17,7 @@ import (
 func TestGetWhenKeyNotPresent(t *testing.T) {
 	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
 	c := cid.NewCidV0(u.Hash([]byte("stuff")))
-	bl, err := bs.Get(c)
+	bl, err := bs.Get(bg, c)
 
 	if bl != nil {
 		t.Error("nil block expected")
@@ -29,7 +29,7 @@ func TestGetWhenKeyNotPresent(t *testing.T) {
 
 func TestGetWhenKeyIsNil(t *testing.T) {
 	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
-	_, err := bs.Get(cid.Cid{})
+	_, err := bs.Get(bg, cid.Cid{})
 	if err != ErrNotFound {
 		t.Fail()
 	}
@@ -39,12 +39,12 @@ func TestPutThenGetBlock(t *testing.T) {
 	bs := NewBlockstore(ds_sync.MutexWrap(ds.NewMapDatastore()))
 	block := blocks.NewBlock([]byte("some data"))
 
-	err := bs.Put(block)
+	err := bs.Put(bg, block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blockFromBlockstore, err := bs.Get(block.Cid())
+	blockFromBlockstore, err := bs.Get(bg, block.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +59,12 @@ func TestPutThenGetSizeBlock(t *testing.T) {
 	missingBlock := blocks.NewBlock([]byte("missingBlock"))
 	emptyBlock := blocks.NewBlock([]byte{})
 
-	err := bs.Put(block)
+	err := bs.Put(bg, block)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	blockSize, err := bs.GetSize(block.Cid())
+	blockSize, err := bs.GetSize(bg, block.Cid())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,16 +72,16 @@ func TestPutThenGetSizeBlock(t *testing.T) {
 		t.Fail()
 	}
 
-	err = bs.Put(emptyBlock)
+	err = bs.Put(bg, emptyBlock)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if blockSize, err := bs.GetSize(emptyBlock.Cid()); blockSize != 0 || err != nil {
+	if blockSize, err := bs.GetSize(bg, emptyBlock.Cid()); blockSize != 0 || err != nil {
 		t.Fatal(err)
 	}
 
-	if blockSize, err := bs.GetSize(missingBlock.Cid()); blockSize != -1 || err == nil {
+	if blockSize, err := bs.GetSize(bg, missingBlock.Cid()); blockSize != -1 || err == nil {
 		t.Fatal("getsize returned invalid result")
 	}
 }
@@ -100,15 +100,15 @@ func TestHashOnRead(t *testing.T) {
 		t.Fatal("debug is off, still got an error")
 	}
 	bl2 := blocks.NewBlock([]byte("some other data"))
-	bs.Put(blBad)
-	bs.Put(bl2)
+	bs.Put(bg, blBad)
+	bs.Put(bg, bl2)
 	bs.HashOnRead(true)
 
-	if _, err := bs.Get(bl.Cid()); err != ErrHashMismatch {
+	if _, err := bs.Get(bg, bl.Cid()); err != ErrHashMismatch {
 		t.Fatalf("expected '%v' got '%v'\n", ErrHashMismatch, err)
 	}
 
-	if b, err := bs.Get(bl2.Cid()); err != nil || b.String() != bl2.String() {
+	if b, err := bs.Get(bg, bl2.Cid()); err != nil || b.String() != bl2.String() {
 		t.Fatal("got wrong blocks")
 	}
 }
@@ -122,7 +122,7 @@ func newBlockStoreWithKeys(t *testing.T, d ds.Datastore, N int) (Blockstore, []c
 	keys := make([]cid.Cid, N)
 	for i := 0; i < N; i++ {
 		block := blocks.NewBlock([]byte(fmt.Sprintf("some data %d", i)))
-		err := bs.Put(block)
+		err := bs.Put(bg, block)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -242,36 +242,41 @@ type queryTestDS struct {
 
 func (c *queryTestDS) SetFunc(f func(dsq.Query) (dsq.Results, error)) { c.cb = f }
 
-func (c *queryTestDS) Put(key ds.Key, value []byte) (err error) {
-	return c.ds.Put(key, value)
+func (c *queryTestDS) Put(ctx context.Context, key ds.Key, value []byte) (err error) {
+	return c.ds.Put(ctx, key, value)
 }
 
-func (c *queryTestDS) Get(key ds.Key) (value []byte, err error) {
-	return c.ds.Get(key)
+func (c *queryTestDS) Get(ctx context.Context, key ds.Key) (value []byte, err error) {
+	return c.ds.Get(ctx, key)
 }
 
-func (c *queryTestDS) Has(key ds.Key) (exists bool, err error) {
-	return c.ds.Has(key)
+func (c *queryTestDS) Has(ctx context.Context, key ds.Key) (exists bool, err error) {
+	return c.ds.Has(ctx, key)
 }
 
-func (c *queryTestDS) GetSize(key ds.Key) (size int, err error) {
-	return c.ds.GetSize(key)
+func (c *queryTestDS) GetSize(ctx context.Context, key ds.Key) (size int, err error) {
+	return c.ds.GetSize(ctx, key)
 }
 
-func (c *queryTestDS) Delete(key ds.Key) (err error) {
-	return c.ds.Delete(key)
+func (c *queryTestDS) Delete(ctx context.Context, key ds.Key) (err error) {
+	return c.ds.Delete(ctx, key)
 }
 
-func (c *queryTestDS) Query(q dsq.Query) (dsq.Results, error) {
+func (c *queryTestDS) Query(ctx context.Context, q dsq.Query) (dsq.Results, error) {
 	if c.cb != nil {
 		return c.cb(q)
 	}
-	return c.ds.Query(q)
+	return c.ds.Query(ctx, q)
 }
 
-func (c *queryTestDS) Batch() (ds.Batch, error) {
+func (c *queryTestDS) Batch(_ context.Context) (ds.Batch, error) {
 	return ds.NewBasicBatch(c), nil
 }
+
+func (c *queryTestDS) Sync(ctx context.Context, prefix ds.Key) error {
+	return nil
+}
+
 func (c *queryTestDS) Close() error {
 	return nil
 }

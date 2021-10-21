@@ -111,12 +111,12 @@ func (b *bloomcache) build(ctx context.Context) error {
 	}
 }
 
-func (b *bloomcache) DeleteBlock(k cid.Cid) error {
+func (b *bloomcache) DeleteBlock(ctx context.Context, k cid.Cid) error {
 	if has, ok := b.hasCached(k); ok && !has {
 		return nil
 	}
 
-	return b.blockstore.DeleteBlock(k)
+	return b.blockstore.DeleteBlock(ctx, k)
 }
 
 // if ok == false has is inconclusive
@@ -139,45 +139,45 @@ func (b *bloomcache) hasCached(k cid.Cid) (has bool, ok bool) {
 	return false, false
 }
 
-func (b *bloomcache) Has(k cid.Cid) (bool, error) {
+func (b *bloomcache) Has(ctx context.Context, k cid.Cid) (bool, error) {
 	if has, ok := b.hasCached(k); ok {
 		return has, nil
 	}
 
-	return b.blockstore.Has(k)
+	return b.blockstore.Has(ctx, k)
 }
 
-func (b *bloomcache) GetSize(k cid.Cid) (int, error) {
+func (b *bloomcache) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 	if has, ok := b.hasCached(k); ok && !has {
 		return -1, ErrNotFound
 	}
 
-	return b.blockstore.GetSize(k)
+	return b.blockstore.GetSize(ctx, k)
 }
 
-func (b *bloomcache) Get(k cid.Cid) (blocks.Block, error) {
+func (b *bloomcache) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 	if has, ok := b.hasCached(k); ok && !has {
 		return nil, ErrNotFound
 	}
 
-	return b.blockstore.Get(k)
+	return b.blockstore.Get(ctx, k)
 }
 
-func (b *bloomcache) Put(bl blocks.Block) error {
+func (b *bloomcache) Put(ctx context.Context, bl blocks.Block) error {
 	// See comment in PutMany
-	err := b.blockstore.Put(bl)
+	err := b.blockstore.Put(ctx, bl)
 	if err == nil {
 		b.bloom.AddTS(bl.Cid().Bytes())
 	}
 	return err
 }
 
-func (b *bloomcache) PutMany(bs []blocks.Block) error {
+func (b *bloomcache) PutMany(ctx context.Context, bs []blocks.Block) error {
 	// bloom cache gives only conclusive resulty if key is not contained
 	// to reduce number of puts we need conclusive information if block is contained
 	// this means that PutMany can't be improved with bloom cache so we just
 	// just do a passthrough.
-	err := b.blockstore.PutMany(bs)
+	err := b.blockstore.PutMany(ctx, bs)
 	if err != nil {
 		return err
 	}
@@ -195,14 +195,14 @@ func (b *bloomcache) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 	return b.blockstore.AllKeysChan(ctx)
 }
 
-func (b *bloomcache) GCLock() Unlocker {
-	return b.blockstore.(GCBlockstore).GCLock()
+func (b *bloomcache) GCLock(ctx context.Context) Unlocker {
+	return b.blockstore.(GCBlockstore).GCLock(ctx)
 }
 
-func (b *bloomcache) PinLock() Unlocker {
-	return b.blockstore.(GCBlockstore).PinLock()
+func (b *bloomcache) PinLock(ctx context.Context) Unlocker {
+	return b.blockstore.(GCBlockstore).PinLock(ctx)
 }
 
-func (b *bloomcache) GCRequested() bool {
-	return b.blockstore.(GCBlockstore).GCRequested()
+func (b *bloomcache) GCRequested(ctx context.Context) bool {
+	return b.blockstore.(GCBlockstore).GCRequested(ctx)
 }

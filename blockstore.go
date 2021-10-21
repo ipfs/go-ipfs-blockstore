@@ -32,19 +32,19 @@ var ErrNotFound = errors.New("blockstore: block not found")
 // Blockstore wraps a Datastore block-centered methods and provides a layer
 // of abstraction which allows to add different caching strategies.
 type Blockstore interface {
-	DeleteBlock(cid.Cid) error
-	Has(cid.Cid) (bool, error)
-	Get(cid.Cid) (blocks.Block, error)
+	DeleteBlock(context.Context, cid.Cid) error
+	Has(context.Context, cid.Cid) (bool, error)
+	Get(context.Context, cid.Cid) (blocks.Block, error)
 
 	// GetSize returns the CIDs mapped BlockSize
-	GetSize(cid.Cid) (int, error)
+	GetSize(context.Context, cid.Cid) (int, error)
 
 	// Put puts a given block to the underlying datastore
-	Put(blocks.Block) error
+	Put(context.Context, blocks.Block) error
 
 	// PutMany puts a slice of blocks at the same time using batching
 	// capabilities of the underlying datastore whenever possible.
-	PutMany([]blocks.Block) error
+	PutMany(context.Context, []blocks.Block) error
 
 	// AllKeysChan returns a channel from which
 	// the CIDs in the Blockstore can be read. It should respect
@@ -62,17 +62,17 @@ type GCLocker interface {
 	// GCLock locks the blockstore for garbage collection. No operations
 	// that expect to finish with a pin should ocurr simultaneously.
 	// Reading during GC is safe, and requires no lock.
-	GCLock() Unlocker
+	GCLock(context.Context) Unlocker
 
 	// PinLock locks the blockstore for sequences of puts expected to finish
 	// with a pin (before GC). Multiple put->pin sequences can write through
 	// at the same time, but no GC should happen simulatenously.
 	// Reading during Pinning is safe, and requires no lock.
-	PinLock() Unlocker
+	PinLock(context.Context) Unlocker
 
 	// GcRequested returns true if GCLock has been called and is waiting to
 	// take the lock
-	GCRequested() bool
+	GCRequested(context.Context) bool
 }
 
 // GCBlockstore is a blockstore that can safely run garbage-collection
@@ -114,13 +114,13 @@ func (bs *blockstore) HashOnRead(enabled bool) {
 	bs.rehash = enabled
 }
 
-func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
+func (bs *blockstore) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) {
 	if !k.Defined() {
 		log.Error("undefined cid in blockstore")
 		return nil, ErrNotFound
 	}
 
-	bdata, err := bs.datastore.Get(dshelp.CidToDsKey(k))
+	bdata, err := bs.datastore.Get(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
 	if err == ds.ErrNotFound {
 		return nil, ErrNotFound
 	}
@@ -142,51 +142,51 @@ func (bs *blockstore) Get(k cid.Cid) (blocks.Block, error) {
 	return blocks.NewBlockWithCid(bdata, k)
 }
 
-func (bs *blockstore) Put(block blocks.Block) error {
-	k := dshelp.CidToDsKey(block.Cid())
+func (bs *blockstore) Put(ctx context.Context, block blocks.Block) error {
+	k := dshelp.NewKeyFromBinary(block.Cid().Bytes())
 
 	// Has is cheaper than Put, so see if we already have it
-	exists, err := bs.datastore.Has(k)
+	exists, err := bs.datastore.Has(ctx, k)
 	if err == nil && exists {
 		return nil // already stored.
 	}
-	return bs.datastore.Put(k, block.RawData())
+	return bs.datastore.Put(ctx, k, block.RawData())
 }
 
-func (bs *blockstore) PutMany(blocks []blocks.Block) error {
-	t, err := bs.datastore.Batch()
+func (bs *blockstore) PutMany(ctx context.Context, blocks []blocks.Block) error {
+	t, err := bs.datastore.Batch(ctx)
 	if err != nil {
 		return err
 	}
 	for _, b := range blocks {
-		k := dshelp.CidToDsKey(b.Cid())
-		exists, err := bs.datastore.Has(k)
+		k := dshelp.NewKeyFromBinary(b.Cid().Bytes())
+		exists, err := bs.datastore.Has(ctx, k)
 		if err == nil && exists {
 			continue
 		}
 
-		err = t.Put(k, b.RawData())
+		err = t.Put(ctx, k, b.RawData())
 		if err != nil {
 			return err
 		}
 	}
-	return t.Commit()
+	return t.Commit(ctx)
 }
 
-func (bs *blockstore) Has(k cid.Cid) (bool, error) {
-	return bs.datastore.Has(dshelp.CidToDsKey(k))
+func (bs *blockstore) Has(ctx context.Context, k cid.Cid) (bool, error) {
+	return bs.datastore.Has(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
 }
 
-func (bs *blockstore) GetSize(k cid.Cid) (int, error) {
-	size, err := bs.datastore.GetSize(dshelp.CidToDsKey(k))
+func (bs *blockstore) GetSize(ctx context.Context, k cid.Cid) (int, error) {
+	size, err := bs.datastore.GetSize(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
 	if err == ds.ErrNotFound {
 		return -1, ErrNotFound
 	}
 	return size, err
 }
 
-func (bs *blockstore) DeleteBlock(k cid.Cid) error {
-	return bs.datastore.Delete(dshelp.CidToDsKey(k))
+func (bs *blockstore) DeleteBlock(ctx context.Context, k cid.Cid) error {
+	return bs.datastore.Delete(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
 }
 
 // AllKeysChan runs a query for keys from the blockstore.
@@ -197,7 +197,7 @@ func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 
 	// KeysOnly, because that would be _a lot_ of data.
 	q := dsq.Query{KeysOnly: true}
-	res, err := bs.datastore.Query(q)
+	res, err := bs.datastore.Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -219,8 +219,12 @@ func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 				return
 			}
 
-			// need to convert to key.Key using key.KeyFromDsKey.
-			k, err := dshelp.DsKeyToCid(ds.RawKey(e.Key))
+			kb, err := dshelp.BinaryFromDsKey(ds.RawKey(e.Key))
+			if err != nil {
+				log.Warningf("error parsing binary from DsKey: %s", err)
+				continue
+			}
+			k, err := cid.Cast(kb)
 			if err != nil {
 				log.Warningf("error parsing key from DsKey: %s", err)
 				continue
@@ -251,30 +255,30 @@ type gclocker struct {
 // Unlocker represents an object which can Unlock
 // something.
 type Unlocker interface {
-	Unlock()
+	Unlock(context.Context)
 }
 
 type unlocker struct {
 	unlock func()
 }
 
-func (u *unlocker) Unlock() {
+func (u *unlocker) Unlock(_ context.Context) {
 	u.unlock()
 	u.unlock = nil // ensure its not called twice
 }
 
-func (bs *gclocker) GCLock() Unlocker {
+func (bs *gclocker) GCLock(_ context.Context) Unlocker {
 	atomic.AddInt32(&bs.gcreq, 1)
 	bs.lk.Lock()
 	atomic.AddInt32(&bs.gcreq, -1)
 	return &unlocker{bs.lk.Unlock}
 }
 
-func (bs *gclocker) PinLock() Unlocker {
+func (bs *gclocker) PinLock(_ context.Context) Unlocker {
 	bs.lk.RLock()
 	return &unlocker{bs.lk.RUnlock}
 }
 
-func (bs *gclocker) GCRequested() bool {
+func (bs *gclocker) GCRequested(_ context.Context) bool {
 	return atomic.LoadInt32(&bs.gcreq) > 0
 }
