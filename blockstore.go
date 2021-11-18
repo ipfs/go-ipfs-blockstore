@@ -120,7 +120,7 @@ func (bs *blockstore) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) 
 		return nil, ErrNotFound
 	}
 
-	bdata, err := bs.datastore.Get(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
+	bdata, err := bs.datastore.Get(ctx, dshelp.CidToDsKey(k))
 	if err == ds.ErrNotFound {
 		return nil, ErrNotFound
 	}
@@ -143,7 +143,7 @@ func (bs *blockstore) Get(ctx context.Context, k cid.Cid) (blocks.Block, error) 
 }
 
 func (bs *blockstore) Put(ctx context.Context, block blocks.Block) error {
-	k := dshelp.NewKeyFromBinary(block.Cid().Bytes())
+	k := dshelp.CidToDsKey(block.Cid())
 
 	// Has is cheaper than Put, so see if we already have it
 	exists, err := bs.datastore.Has(ctx, k)
@@ -159,7 +159,7 @@ func (bs *blockstore) PutMany(ctx context.Context, blocks []blocks.Block) error 
 		return err
 	}
 	for _, b := range blocks {
-		k := dshelp.NewKeyFromBinary(b.Cid().Bytes())
+		k := dshelp.CidToDsKey(b.Cid())
 		exists, err := bs.datastore.Has(ctx, k)
 		if err == nil && exists {
 			continue
@@ -174,11 +174,11 @@ func (bs *blockstore) PutMany(ctx context.Context, blocks []blocks.Block) error 
 }
 
 func (bs *blockstore) Has(ctx context.Context, k cid.Cid) (bool, error) {
-	return bs.datastore.Has(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
+	return bs.datastore.Has(ctx, dshelp.CidToDsKey(k))
 }
 
 func (bs *blockstore) GetSize(ctx context.Context, k cid.Cid) (int, error) {
-	size, err := bs.datastore.GetSize(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
+	size, err := bs.datastore.GetSize(ctx, dshelp.CidToDsKey(k))
 	if err == ds.ErrNotFound {
 		return -1, ErrNotFound
 	}
@@ -186,7 +186,7 @@ func (bs *blockstore) GetSize(ctx context.Context, k cid.Cid) (int, error) {
 }
 
 func (bs *blockstore) DeleteBlock(ctx context.Context, k cid.Cid) error {
-	return bs.datastore.Delete(ctx, dshelp.NewKeyFromBinary(k.Bytes()))
+	return bs.datastore.Delete(ctx, dshelp.CidToDsKey(k))
 }
 
 // AllKeysChan runs a query for keys from the blockstore.
@@ -219,12 +219,8 @@ func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
 				return
 			}
 
-			kb, err := dshelp.BinaryFromDsKey(ds.RawKey(e.Key))
-			if err != nil {
-				log.Warningf("error parsing binary from DsKey: %s", err)
-				continue
-			}
-			k, err := cid.Cast(kb)
+			// need to convert to key.Key using key.KeyFromDsKey.
+			k, err := dshelp.DsKeyToCid(ds.RawKey(e.Key))
 			if err != nil {
 				log.Warningf("error parsing key from DsKey: %s", err)
 				continue
