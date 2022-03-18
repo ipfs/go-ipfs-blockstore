@@ -8,7 +8,7 @@ require (
 	github.com/ipfs/go-datastore v0.5.0
 	github.com/ipfs/go-ipfs-ds-help v1.1.0
 	github.com/ipfs/go-ipfs-util v0.0.2
-	github.com/ipfs/go-ipld-format v0.2.1-0.20220302134852-d02e0e18fc65
+	github.com/ipfs/go-ipld-format v0.3.0
 	github.com/ipfs/go-log v0.0.1
 	github.com/ipfs/go-metrics-interface v0.0.1
 	github.com/multiformats/go-multihash v0.0.14
