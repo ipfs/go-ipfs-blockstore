@@ -5,6 +5,7 @@ package blockstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
@@ -94,17 +95,111 @@ type GCLocker interface {
 type GCBlockstore interface {
 	Blockstore
 	GCLocker
+
+	// GarbageCollect requests that the blockstore remove blocks in order to reclaim space
+	// It is passed a set of CIDs for blocks that must be preserved and a goal for the
+	// amount of space to be reclaimed. The blockstore should attempt to free at least
+	// this amount of space and may free more. Information about each block removed, or errors
+	// enountered are sent on the supplied GCResult channel. Implementations should
+	// respect deadlines by aborting when the context is canceled.
+	GarbageCollect(context.Context, *cid.Set, int64, chan<- GCResult)
+}
+
+// GCResult holds information about a CID removed from a blockstore during garbage collection
+// or an error that was encountered while doing so
+type GCResult struct {
+	KeyRemoved cid.Cid
+	Error      error
+}
+
+// ErrCannotDeleteSomeBlocks is returned when removing blocks marked for
+// deletion fails as the last Result in GC output channel.
+var ErrCannotDeleteSomeBlocks = errors.New("garbage collection incomplete: could not delete some blocks")
+
+// CannotDeleteBlockError provides detailed information about which
+// blocks could not be deleted and can appear as a Result in the GC output
+// channel.
+type CannotDeleteBlockError struct {
+	Key cid.Cid
+	Err error
+}
+
+// Error implements the error interface for this type with a
+// useful message.
+func (e *CannotDeleteBlockError) Error() string {
+	return fmt.Sprintf("could not remove %s: %s", e.Key, e.Err)
 }
 
 // NewGCBlockstore returns a default implementation of GCBlockstore
 // using the given Blockstore and GCLocker.
 func NewGCBlockstore(bs Blockstore, gcl GCLocker) GCBlockstore {
-	return gcBlockstore{bs, gcl}
+	return &gcBlockstore{bs, gcl}
 }
 
 type gcBlockstore struct {
 	Blockstore
 	GCLocker
+}
+
+// GarbageCollect performs garbage collection using the SimpleGarbageCollect algorithm.
+func (bs *gcBlockstore) GarbageCollect(ctx context.Context, keep *cid.Set, goal int64, output chan<- GCResult) {
+	SimpleGarbageCollect(ctx, bs, keep, goal, output)
+}
+
+// SimpleGarbageCollect implements a simple garbage collection algorithm. All blocks in the store are enumerated
+// and removed if they do not appear in the keep set. This implementation does not use the goal argument. CIDs
+// of removed blocks and errors encountered are reported using the output channel.
+func SimpleGarbageCollect(ctx context.Context, bs Blockstore, keep *cid.Set, goal int64, output chan<- GCResult) {
+	keychan, err := bs.AllKeysChan(ctx)
+	if err != nil {
+		select {
+		case output <- GCResult{Error: err}:
+		case <-ctx.Done():
+		}
+		return
+	}
+
+	errors := false
+
+loop:
+	for ctx.Err() == nil { // select may not notice that we're "done".
+		select {
+		case k, ok := <-keychan:
+			if !ok {
+				break loop
+			}
+			// NOTE: assumes that all CIDs returned by the keychan are _raw_ CIDv1 CIDs.
+			// This means we keep the block as long as we want it somewhere (CIDv1, CIDv0, Raw, other...).
+			if !keep.Has(k) {
+				err := bs.DeleteBlock(ctx, k)
+				if err != nil {
+					errors = true
+					select {
+					case output <- GCResult{Error: &CannotDeleteBlockError{Key: k, Err: err}}:
+					case <-ctx.Done():
+						break loop
+					}
+					// continue as error is non-fatal
+					continue loop
+				}
+				select {
+				case output <- GCResult{KeyRemoved: k}:
+				case <-ctx.Done():
+					break loop
+				}
+			}
+		case <-ctx.Done():
+			break loop
+		}
+	}
+
+	if errors {
+		select {
+		case output <- GCResult{Error: ErrCannotDeleteSomeBlocks}:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // NewBlockstore returns a default Blockstore implementation
@@ -223,7 +318,6 @@ func (bs *blockstore) DeleteBlock(ctx context.Context, k cid.Cid) error {
 //
 // AllKeysChan respects context.
 func (bs *blockstore) AllKeysChan(ctx context.Context) (<-chan cid.Cid, error) {
-
 	// KeysOnly, because that would be _a lot_ of data.
 	q := dsq.Query{KeysOnly: true}
 	res, err := bs.datastore.Query(ctx, q)
