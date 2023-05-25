@@ -20,7 +20,6 @@
 
 - [Install](#install)
 - [Usage](#usage)
-- [Contribute](#contribute)
 - [License](#license)
 
 ## Install
@@ -38,12 +37,6 @@ import "github.com/ipfs/go-ipfs-blockstore"
 ```
 
 Check the [GoDoc documentation](https://godoc.org/github.com/ipfs/go-ipfs-blockstore)
-
-## Contribute
-
-PRs accepted.
-
-Small note: If editing the README, please conform to the [standard-readme](https://github.com/RichardLitt/standard-readme) specification.
 
 ## License
 
